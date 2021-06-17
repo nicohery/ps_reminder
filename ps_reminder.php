@@ -222,20 +222,21 @@ class Ps_Reminder extends Module
                     array(),
                     'Modules.Reminder.Admin')
             );
-            if (false !== $voucher) {
+            // allowing to use 0 discount
+            //if (false !== $voucher) {
                 $template_vars = array(
                     '{email}' => $email['email'],
                     '{lastname}' => $email['lastname'],
                     '{firstname}' => $email['firstname'],
                     '{amount}' => $conf['PS_FOLLOW_UP_AMOUNT_1'],
                     '{days}' => $conf['PS_FOLLOW_UP_DAYS_1'],
-                    '{voucher_num}' => $voucher->code
+                    '{voucher_num}' => $voucher ? $voucher->code : null
                 );
                 Mail::Send(
                     (int)$email['id_lang'],
-                    'followup_1',
+                    $voucher ? 'ps_reminder_1' : 'ps_reminder_1_0',
                     Mail::l(
-                        'Your cart and your discount',
+                        $voucher ? 'Your cart and your discount' : 'Your cart',
                         (int)$email['id_lang']
                     ),
                     $template_vars,
@@ -253,7 +254,7 @@ class Ps_Reminder extends Module
                     (int)$email['id_customer'],
                     (int)$email['id_cart']
                 );
-            }
+            //}
         }
     }
 
@@ -365,7 +366,7 @@ class Ps_Reminder extends Module
                 );
                 Mail::Send(
                     (int)$email['id_lang'],
-                    'followup_2',
+                    'ps_reminder_2',
                     Mail::l(
                         'Thanks for your order',
                         (int)$email['id_lang']
@@ -457,7 +458,7 @@ class Ps_Reminder extends Module
                 );
                 Mail::Send(
                     (int)$email['id_lang'],
-                    'followup_3',
+                    'ps_reminder_3',
                     Mail::l(
                         'You are one of our best customers',
                         (int)$email['id_lang']
@@ -566,7 +567,7 @@ class Ps_Reminder extends Module
                 );
                 Mail::Send(
                     (int)$email['id_lang'],
-                    'followup_4',
+                    'ps_reminder_4',
                     Mail::l(
                         'We miss you',
                         (int)$email['id_lang']
@@ -597,6 +598,10 @@ class Ps_Reminder extends Module
         $date_validity,
         $description
     ) {
+        if ($amount <= 0) {
+            return false;
+        }
+
         $cart_rule = new CartRule();
         $cart_rule->reduction_percent = (float)$amount;
         $cart_rule->id_customer = (int)$id_customer;
@@ -744,13 +749,14 @@ class Ps_Reminder extends Module
 
         $cron_info = '';
         if (Shop::getContext() === Shop::CONTEXT_SHOP) {
+            $cron_url = $this->context->shop->getBaseURL(true, false) . _MODULE_DIR_ .
+                $this->name . '/cron.php?secure_key=' . Configuration::get('PS_FOLLOWUP_SECURE_KEY');
             $cron_info = $this->trans(
                 'Define the settings and paste the following URL in the crontab, or call it manually on a daily basis:',
                     array(),
                     'Modules.Reminder.Admin'
-                ).'<br /><b>' . $this->context->shop->getBaseURL() .
-                'modules/followup/cron.php?secure_key=' .
-                Configuration::get('PS_FOLLOWUP_SECURE_KEY') . '</b></p>';
+                ).'<br /><b>' . $cron_url . '</b>' .
+                ' - <a href="' . $cron_url . '" target="_blank">Open Now</span></a></p>';
         }
 
         $fields_form_1 = array(
@@ -782,7 +788,7 @@ class Ps_Reminder extends Module
                     'icon' => 'icon-cogs',
                 ),
                 'description' => $this->trans(
-                    'For each cancelled cart (with no order), generate a discount and send it to the customer.',
+                    'For each canceled cart (with no order), generate a discount and send it to the customer. Set it to 0% to disable the discount and just send a reminder email.',
                     array(),
                     'Modules.Reminder.Admin'
                 ),
